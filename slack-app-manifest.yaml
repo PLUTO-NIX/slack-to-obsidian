@@ -1,0 +1,40 @@
+# Slack App Manifest for Obsidian Todo
+# 사용법:
+# 1. wrangler deploy 후 Worker URL 확인 (예: https://slack-to-obsidian.xxx.workers.dev)
+# 2. 아래 YOUR-WORKER-DOMAIN을 해당 도메인으로 치환 (예: slack-to-obsidian.xxx.workers.dev)
+# 3. api.slack.com/apps → Create New App → From a manifest → 이 파일 내용 붙여넣기
+
+display_information:
+  name: Obsidian Todo
+  description: Add Slack messages to Obsidian daily note as todos
+  background_color: "#7C3AED"
+
+features:
+  shortcuts:
+    - name: Add to Todo
+      type: message
+      callback_id: send_to_obsidian
+      description: Add this message to Obsidian daily note as a todo
+  bot_user:
+    display_name: Obsidian Todo
+    always_online: false
+
+oauth_config:
+  scopes:
+    bot:
+      - commands
+      - chat:write
+      - reactions:read
+      - channels:history
+      - groups:history
+      - im:history
+      - mpim:history
+
+settings:
+  event_subscriptions:
+    request_url: "https://YOUR-WORKER-DOMAIN/slack/events"
+    bot_events:
+      - reaction_added
+  interactivity:
+    is_enabled: true
+    request_url: "https://YOUR-WORKER-DOMAIN/slack/events"

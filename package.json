@@ -1,0 +1,12 @@
+{
+  "name": "slack-to-obsidian",
+  "version": "1.0.0",
+  "description": "Slack message to Obsidian daily note todo automation",
+  "main": "src/index.js",
+  "scripts": {
+    "dev": "wrangler dev",
+    "deploy": "wrangler deploy",
+    "test": "node --test test/slack/verify.test.js test/kv/dedup.test.js test/utils.test.js test/gemini/summarize.test.js"
+  },
+  "type": "module"
+}

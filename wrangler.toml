@@ -1,0 +1,17 @@
+name = "slack-to-obsidian"
+main = "src/index.js"
+compatibility_date = "2026-02-01"
+
+[[kv_namespaces]]
+binding = "slack_to_obsidian"
+id = "83b842ef84bb49e8805c41db1414e6f1"
+
+[vars]
+ALLOWED_USER_ID = "U05FDHF9FCL"
+TRIGGER_EMOJI = "hg-todo"
+
+# Secrets (wrangler secret put 으로 등록):
+# SLACK_SIGNING_SECRET
+# SLACK_BOT_TOKEN
+# GEMINI_API_KEY
+# KV_API_TOKEN
