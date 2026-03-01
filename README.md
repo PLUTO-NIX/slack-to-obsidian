@@ -305,6 +305,23 @@ slack-obsidian-todo/
 └── Slack To Obsidian Script.md
 ```
 
+### KV 저장소 (Metadata 필터 최적화)
+
+Cloudflare Workers KV 무료 티어 일일 Read 한도(100,000회)를 절약하기 위해 **metadata 필터**를 적용했다.
+
+| 항목 | 설명 |
+|------|------|
+| **키 형식** | `todo:{channelId}:{messageTs}` — 슬랙 메시지 1개당 1키 |
+| **metadata** | `put` 시 `status` 저장 → `list` 결과로 필터링 |
+| **Read 최적화** | `written` 키는 `get` 생략, `pending`/`updated`만 조회 |
+
+**GET /api/todos 호출당 KV 연산:**
+
+- **이전**: List 1 + Read N (전체 키)
+- **이후**: List 1 + Read M (pending/updated만, M ≪ N)
+
+예: 키 100개 중 pending 2개 → Read 100회 → **2회**로 감소.
+
 ### 테스트
 
 ```bash

@@ -17,11 +17,12 @@ export function makeKey(channelId, messageTs) {
  * @param {object} data
  */
 export async function saveTodo(kv, key, data) {
-  // written 상태면 7일 후 자동 삭제
-  const options =
-    data.status === "written"
-      ? { expirationTtl: 7 * 24 * 60 * 60 }
-      : {};
+  const options = {
+    ...(data.status === "written" && {
+      expirationTtl: 7 * 24 * 60 * 60,
+    }),
+    metadata: { status: data.status },
+  };
 
   await kv.put(key, JSON.stringify(data), options);
 }
@@ -44,12 +45,22 @@ export async function getTodo(kv, key) {
  */
 export async function listPendingTodos(kv) {
   const list = await kv.list({ prefix: "todo:" });
-  const todos = [];
+  const keysToFetch = [];
 
   for (const key of list.keys) {
-    const data = await kv.get(key.name, { type: "json" });
+    const status = key.metadata?.status;
+    if (status === "pending" || status === "updated") {
+      keysToFetch.push(key.name);
+    } else if (status === undefined || status === null) {
+      keysToFetch.push(key.name);
+    }
+  }
+
+  const todos = [];
+  for (const name of keysToFetch) {
+    const data = await kv.get(name, { type: "json" });
     if (data && (data.status === "pending" || data.status === "updated")) {
-      todos.push({ key: key.name, ...data });
+      todos.push({ key: name, ...data });
     }
   }
 
