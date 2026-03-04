@@ -1,16 +1,16 @@
 <%*
 // ════════════════════════════════════════════════
-// Slack To Obsidia — Templater Startup Script
+// Slack To Obsidian — Templater Startup Script
 // 이 파일을 볼트의 템플릿 폴더에 넣고,
 // Templater 설정 → Startup Templates에 등록하세요.
 // ════════════════════════════════════════════════
 
 // ── 설정 ──
 const CONFIG = {
-  workerUrl: "https://slack-to-obsidian.plutonix.workers.dev",
-  apiToken: "64da95ed650040f1eed9a3e7d31335aa85af61a88014caf9588baf889e83a543",
+  workerUrl: "https://YOUR-WORKER-DOMAIN",
+  apiToken: "YOUR_API_TOKEN",  // Slack에서 전역 숏컷 "Obsidian Todo 설정"으로 확인
   pollInterval: 30000,  // 30초
-  dailyNotePath: "03 Resource/Me & Life/Journal/Daily",
+  dailyNotePath: "YOUR/DAILY/NOTE/PATH",
   insertAfter: "### Today",  // 이 헤딩 다음 줄에 투두 추가
 };
 
@@ -72,11 +72,10 @@ async function writeTodo(todo) {
 
   let file = app.vault.getAbstractFileByPath(filepath);
 
-  // 파일 없으면 생성 (insertAfter 헤딩 + 빈 줄 + 투두)
+  // 파일 없으면 skip (pending 유지, 다음 폴링에서 재시도)
   if (!file) {
-    const header = CONFIG.insertAfter + "\n\n" + line + "\n";
-    await app.vault.create(filepath, header);
-    return;
+    console.log(`[SlackTodo] Daily note not found: ${filepath}`);
+    return false;
   }
 
   let content = await app.vault.read(file);
@@ -88,13 +87,13 @@ async function writeTodo(todo) {
       if (lines[i].includes(todo.message_url)) {
         lines[i] = line;
         await app.vault.modify(file, lines.join("\n"));
-        return;
+        return true;
       }
     }
   }
 
   // 이미 같은 URL이 있으면 건너뜀 (중복 방지)
-  if (content.includes(todo.message_url)) return;
+  if (content.includes(todo.message_url)) return true;
 
   // insertAfter 헤딩 다음 줄에 삽입
   const marker = CONFIG.insertAfter;
@@ -104,26 +103,36 @@ async function writeTodo(todo) {
     const insertAt = markerIndex + 1;
     lines.splice(insertAt, 0, line);
     await app.vault.modify(file, lines.join("\n"));
+    return true;
   } else {
-    // 헤딩 없으면 맨 끝에 append
-    const newContent = content.endsWith("\n")
-      ? content + line + "\n"
-      : content + "\n" + line + "\n";
-    await app.vault.modify(file, newContent);
+    // 헤딩 없으면 skip (pending 유지, 다음 폴링에서 재시도)
+    console.log(`[SlackTodo] Heading not found: ${CONFIG.insertAfter} in ${filepath}`);
+    return false;
   }
 }
 
 // ── 메인 사이클 ──
 async function poll() {
   const todos = await fetchPending();
+  let successCount = 0;
+  let skipCount = 0;
 
   for (const todo of todos) {
-    await writeTodo(todo);
-    await markWritten(todo.key);
+    try {
+      const written = await writeTodo(todo);
+      if (written) {
+        await markWritten(todo.key);
+        successCount++;
+      } else {
+        skipCount++;
+      }
+    } catch (err) {
+      console.error(`[SlackTodo] Error processing todo:`, err);
+    }
   }
 
-  if (todos.length > 0) {
-    new Notice(`📌 ${todos.length}개의 슬랙 투두가 등록되었습니다.`);
+  if (successCount > 0) {
+    new Notice(`📌 ${successCount}개의 슬랙 투두가 등록되었습니다.`);
   }
 }
 

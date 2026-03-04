@@ -20,18 +20,30 @@ export async function getPermalink(channelId, messageTs, token) {
 
 /**
  * 메시지 원본 텍스트 가져오기
+ * reactions.get은 채널 메시지 / 스레드 답글 모두에서 동작
+ * (이모지 핸들러에서 호출되므로 리액션이 반드시 존재)
  */
 export async function fetchMessageText(channelId, messageTs, token) {
   const res = await fetch(
-    `https://slack.com/api/conversations.history?channel=${channelId}&latest=${messageTs}&inclusive=true&limit=1`,
+    `https://slack.com/api/reactions.get?channel=${channelId}&timestamp=${messageTs}&full=true`,
     { headers: { Authorization: `Bearer ${token}` } }
   );
   const data = await res.json();
-  if (!data.ok) {
-    console.error("fetchMessageText error:", data.error);
-    return "";
+  if (data.ok && data.message?.text) {
+    return data.message.text;
   }
-  return data.messages?.[0]?.text || "";
+
+  // 폴백: reactions.get 실패 시 conversations.history
+  const histRes = await fetch(
+    `https://slack.com/api/conversations.history?channel=${channelId}&latest=${messageTs}&inclusive=true&limit=1`,
+    { headers: { Authorization: `Bearer ${token}` } }
+  );
+  const histData = await histRes.json();
+  if (histData.ok && histData.messages?.[0]?.ts === messageTs) {
+    return histData.messages[0].text || "";
+  }
+
+  return "";
 }
 
 /**

@@ -6,7 +6,8 @@
   "scripts": {
     "dev": "wrangler dev",
     "deploy": "wrangler deploy",
-    "test": "node --test test/slack/verify.test.js test/kv/dedup.test.js test/utils.test.js test/gemini/summarize.test.js"
+    "test": "node --test test/slack/verify.test.js test/kv/dedup.test.js test/kv/store.test.js test/utils.test.js test/gemini/summarize.test.js test/user/registry.test.js test/user/auth.test.js",
+    "release": "node scripts/create-release.js"
   },
   "type": "module"
 }

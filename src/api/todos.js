@@ -1,8 +1,3 @@
-/**
- * Templater용 REST API 핸들러
- * GET  /api/todos?status=pending  → Pending/Updated 투두 목록 조회
- * PATCH /api/todos/:key           → 투두 상태 업데이트
- */
 import { listPendingTodos, getTodo, saveTodo } from "../kv/store.js";
 import { corsHeaders } from "../utils.js";
 
@@ -11,22 +6,22 @@ const jsonHeaders = {
   ...corsHeaders,
 };
 
-/**
- * Pending 투두 목록 반환
- */
-export async function handleGetTodos(request, env) {
-  const todos = await listPendingTodos(env.slack_to_obsidian);
+export async function handleGetTodos(request, env, userId) {
+  const todos = await listPendingTodos(env.slack_to_obsidian, userId);
   return Response.json({ todos }, { headers: jsonHeaders });
 }
 
-/**
- * 투두 상태 업데이트
- * Templater가 데일리 노트에 기록 후 status를 "written"으로 변경할 때 호출
- */
-export async function handleUpdateTodo(request, env) {
+export async function handleUpdateTodo(request, env, userId) {
   const url = new URL(request.url);
-  // "/api/todos/todo:C123:1234.5678" → "todo:C123:1234.5678"
   const key = decodeURIComponent(url.pathname.replace("/api/todos/", ""));
+
+  // 키 소유권 검증
+  if (!key.startsWith(`todo:${userId}:`)) {
+    return Response.json({ error: "Forbidden" }, {
+      status: 403,
+      headers: jsonHeaders,
+    });
+  }
 
   const existing = await getTodo(env.slack_to_obsidian, key);
   if (!existing) {
@@ -37,8 +32,17 @@ export async function handleUpdateTodo(request, env) {
   }
 
   const body = await request.json();
-  const updated = { ...existing, ...body };
 
-  await saveTodo(env.slack_to_obsidian, key, updated);
+  // status 필드만 허용, "written" 값만 허용
+  const { status } = body;
+  if (status !== "written") {
+    return Response.json({ error: "Invalid status" }, {
+      status: 400,
+      headers: jsonHeaders,
+    });
+  }
+
+  const updated = { ...existing, status };
+  await saveTodo(env.slack_to_obsidian, userId, key, updated);
   return Response.json({ success: true }, { headers: jsonHeaders });
 }

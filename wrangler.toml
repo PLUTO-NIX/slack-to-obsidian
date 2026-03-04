@@ -7,8 +7,9 @@ binding = "slack_to_obsidian"
 id = "83b842ef84bb49e8805c41db1414e6f1"
 
 [vars]
-ALLOWED_USER_ID = "U05FDHF9FCL"
 TRIGGER_EMOJI = "hg-todo"
+# ALLOWED_USER_ID 제거 — 멀티유저 전환으로 더 이상 불필요
+# KV_API_TOKEN 시크릿은 마이그레이션 확인 후 제거
 
 # Secrets (wrangler secret put 으로 등록):
 # SLACK_SIGNING_SECRET

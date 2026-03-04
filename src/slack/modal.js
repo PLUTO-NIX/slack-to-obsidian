@@ -9,6 +9,7 @@ import { postEphemeral } from "./utils.js";
 import { formatDateForDailyNote } from "../utils.js";
 
 export async function handleModalSubmit(payload, env) {
+  const userId = payload.user.id;
   const metadata = JSON.parse(payload.view.private_metadata);
   const userInput =
     payload.view.state.values?.todo_input_block?.todo_text?.value;
@@ -16,7 +17,7 @@ export async function handleModalSubmit(payload, env) {
   const { channel_id: channelId, message_ts: messageTs, message_text: messageText, permalink } = metadata;
 
   try {
-    const kvKey = makeKey(channelId, messageTs);
+    const kvKey = makeKey(userId, channelId, messageTs);
 
     // 중복 체크 + 덮어쓰기 판단
     const existing = await getTodo(env.slack_to_obsidian, kvKey);
@@ -25,7 +26,7 @@ export async function handleModalSubmit(payload, env) {
     if (decision.action === "ignore") {
       await postEphemeral(
         channelId,
-        payload.user.id,
+        userId,
         "이미 등록된 투두입니다.",
         env.SLACK_BOT_TOKEN
       );
@@ -53,7 +54,7 @@ export async function handleModalSubmit(payload, env) {
       created_at: new Date().toISOString(),
       previous_text: existing?.todo_text || null,
     };
-    await saveTodo(env.slack_to_obsidian, kvKey, todoData);
+    await saveTodo(env.slack_to_obsidian, userId, kvKey, todoData);
 
     // Slack ephemeral 확인 메시지
     let msg =
@@ -63,7 +64,7 @@ export async function handleModalSubmit(payload, env) {
     if (usedFallback) {
       msg += " (요약 실패, 원본 텍스트로 등록됨)";
     }
-    await postEphemeral(channelId, payload.user.id, msg, env.SLACK_BOT_TOKEN);
+    await postEphemeral(channelId, userId, msg, env.SLACK_BOT_TOKEN);
   } catch (err) {
     console.error(`modal handler error [${channelId}:${messageTs}]:`, err);
   }

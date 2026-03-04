@@ -32,5 +32,11 @@ export async function verifySlackSignature(request, body, signingSecret) {
       .map((b) => b.toString(16).padStart(2, "0"))
       .join("");
 
-  return hexSignature === slackSignature;
+  const enc = new TextEncoder();
+  const a = enc.encode(hexSignature);
+  const b = enc.encode(slackSignature);
+  if (a.byteLength !== b.byteLength) return false;
+  let mismatch = 0;
+  for (let i = 0; i < a.length; i++) mismatch |= a[i] ^ b[i];
+  return mismatch === 0;
 }

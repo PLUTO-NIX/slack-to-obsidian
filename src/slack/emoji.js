@@ -7,22 +7,24 @@ import { shouldProcess } from "../kv/dedup.js";
 import { summarizeWithGemini } from "../gemini/summarize.js";
 import { fetchMessageText, getPermalink, postEphemeral } from "./utils.js";
 import { formatDateForDailyNote } from "../utils.js";
+import { getOrRegisterUser } from "../user/registry.js";
 
 export async function handleEmojiReaction(event, env) {
   // 이모지 필터
   if (event.reaction !== env.TRIGGER_EMOJI) return;
 
-  // 권한 체크
-  if (event.user !== env.ALLOWED_USER_ID) return;
-
   // message 타입만 처리 (file 등 제외)
   if (event.item.type !== "message") return;
 
+  const userId = event.user;
   const channelId = event.item.channel;
   const messageTs = event.item.ts;
 
   try {
-    const kvKey = makeKey(channelId, messageTs);
+    // 유저 등록 (첫 사용 시 자동)
+    const userInfo = await getOrRegisterUser(userId, env.slack_to_obsidian);
+
+    const kvKey = makeKey(userId, channelId, messageTs);
 
     // 중복 체크
     const existing = await getTodo(env.slack_to_obsidian, kvKey);
@@ -60,13 +62,23 @@ export async function handleEmojiReaction(event, env) {
       created_at: new Date().toISOString(),
       previous_text: null,
     };
-    await saveTodo(env.slack_to_obsidian, kvKey, todoData);
+    await saveTodo(env.slack_to_obsidian, userId, kvKey, todoData);
+
+    // 신규 유저에게 토큰 안내
+    if (userInfo.isNew) {
+      await postEphemeral(
+        channelId,
+        userId,
+        `🔑 Obsidian Todo에 등록되었습니다!\n\nAPI 토큰: \`${userInfo.apiToken}\`\n\nTemplater 스크립트의 CONFIG.apiToken에 위 토큰을 설정하세요.\n전역 숏컷 "Obsidian Todo 설정"으로 토큰을 다시 확인할 수 있습니다.`,
+        env.SLACK_BOT_TOKEN
+      );
+    }
 
     // Gemini 폴백 시 사용자 피드백
     if (usedFallback) {
       await postEphemeral(
         channelId,
-        event.user,
+        userId,
         "✅ 투두가 등록되었습니다. (요약 실패, 원본 텍스트로 등록됨)",
         env.SLACK_BOT_TOKEN
       );

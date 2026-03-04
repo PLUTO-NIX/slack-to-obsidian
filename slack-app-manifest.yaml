@@ -15,6 +15,10 @@ features:
       type: message
       callback_id: send_to_obsidian
       description: Add this message to Obsidian daily note as a todo
+    - name: Obsidian Todo Settings
+      type: global
+      callback_id: obsidian_todo_settings
+      description: View your API token and Obsidian Todo settings
   bot_user:
     display_name: Obsidian Todo
     always_online: false
@@ -32,9 +36,9 @@ oauth_config:
 
 settings:
   event_subscriptions:
-    request_url: "https://YOUR-WORKER-DOMAIN/slack/events"
+    request_url: https://slack-to-obsidian.plutonix.workers.dev/slack/events
     bot_events:
       - reaction_added
   interactivity:
     is_enabled: true
-    request_url: "https://YOUR-WORKER-DOMAIN/slack/events"
+    request_url: https://slack-to-obsidian.plutonix.workers.dev/slack/events

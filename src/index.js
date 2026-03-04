@@ -11,7 +11,9 @@ import { verifySlackSignature } from "./slack/verify.js";
 import { handleShortcutTrigger } from "./slack/shortcut.js";
 import { handleModalSubmit } from "./slack/modal.js";
 import { handleEmojiReaction } from "./slack/emoji.js";
+import { handleSettingsShortcut } from "./slack/settings.js";
 import { handleGetTodos, handleUpdateTodo } from "./api/todos.js";
+import { authenticateByToken } from "./user/auth.js";
 import { corsHeaders } from "./utils.js";
 
 export default {
@@ -31,9 +33,9 @@ export default {
 
     // ── Templater용 API ──
     if (url.pathname.startsWith("/api/todos")) {
-      // Bearer 토큰 인증
-      const authHeader = request.headers.get("Authorization");
-      if (authHeader !== `Bearer ${env.KV_API_TOKEN}`) {
+      // 유저별 토큰 인증
+      const auth = await authenticateByToken(request, env);
+      if (!auth.ok) {
         return new Response("Unauthorized", {
           status: 403,
           headers: corsHeaders,
@@ -41,10 +43,10 @@ export default {
       }
 
       if (method === "GET") {
-        return handleGetTodos(request, env);
+        return handleGetTodos(request, env, auth.userId);
       }
       if (method === "PATCH") {
-        return handleUpdateTodo(request, env);
+        return handleUpdateTodo(request, env, auth.userId);
       }
     }
 
@@ -55,8 +57,6 @@ export default {
 /**
  * Slack 요청 처리 분기
  * Content-Type으로 Event API(JSON)와 Interactivity(form-urlencoded)를 구분
- * - Event API: url_verification, reaction_added
- * - Interactivity: message_action(숏컷), view_submission(모달)
  */
 async function handleSlackRequest(request, env, ctx) {
   const body = await request.text();
@@ -69,6 +69,7 @@ async function handleSlackRequest(request, env, ctx) {
     const payload = JSON.parse(body);
 
     // URL Verification (앱 설치 시 한 번)
+    // 서명 검증 전에 응답해야 함 — Slack이 요청 URL 등록 시 사용하는 핸드셰이크
     if (payload.type === "url_verification") {
       return Response.json({ challenge: payload.challenge });
     }
@@ -118,6 +119,13 @@ async function handleSlackRequest(request, env, ctx) {
     // Message Shortcut 트리거
     if (payload.type === "message_action") {
       return handleShortcutTrigger(payload, env);
+    }
+
+    // 전역 숏컷 (설정)
+    if (payload.type === "shortcut") {
+      if (payload.callback_id === "obsidian_todo_settings") {
+        return handleSettingsShortcut(payload, env);
+      }
     }
 
     // 모달 제출 → 비동기 처리 후 즉시 빈 200 응답으로 모달 닫기
