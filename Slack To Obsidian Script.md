@@ -14,17 +14,17 @@ const CONFIG = {
   insertAfter: "### Today",  // 이 헤딩 다음 줄에 투두 추가
 };
 
-// ── 유틸: YYYY-MM-DD (또는 YYYY-MM-DD dd) → 데일리 노트 파일 경로 (로케일 자동 적용) ──
+// ── 유틸: YYYY-MM-DD → 데일리 노트 파일 경로 (날짜 접두어로 검색, 로케일 무관) ──
 function toFilePath(dateStr) {
   const datePart = dateStr.split(" ")[0];
-  const d = new Date(datePart + "T12:00:00Z");
-  const locale = navigator.language || "ko-KR";
-  const dayName = d.toLocaleDateString(locale, {
-    weekday: "narrow",
-    timeZone: "UTC",
-  });
-  const filename = `${datePart} ${dayName}`;
-  return `${CONFIG.dailyNotePath}/${filename}.md`;
+  const folder = app.vault.getAbstractFileByPath(CONFIG.dailyNotePath);
+  if (folder && folder.children) {
+    const match = folder.children.find(
+      (f) => f.name.startsWith(datePart) && f.name.endsWith(".md")
+    );
+    if (match) return match.path;
+  }
+  return null;
 }
 
 // ── 유틸: 투두 마크다운 라인 포맷 ──
@@ -70,9 +70,13 @@ async function writeTodo(todo) {
   const filepath = toFilePath(todo.target_date);
   const line = formatLine(todo);
 
-  let file = app.vault.getAbstractFileByPath(filepath);
-
   // 파일 없으면 skip (pending 유지, 다음 폴링에서 재시도)
+  if (!filepath) {
+    console.log(`[SlackTodo] Daily note not found for date: ${todo.target_date}`);
+    return false;
+  }
+
+  let file = app.vault.getAbstractFileByPath(filepath);
   if (!file) {
     console.log(`[SlackTodo] Daily note not found: ${filepath}`);
     return false;
